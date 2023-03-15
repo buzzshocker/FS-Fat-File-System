@@ -22,8 +22,6 @@ struct __attribute__ ((packed)) super_block {
     uint8_t padding[4079];
 };
 
-typedef struct super_block* super_t;
-
 struct __attribute__ ((packed)) FAT {
     uint16_t* fat_data;
 };
@@ -31,7 +29,7 @@ struct __attribute__ ((packed)) FAT {
 typedef struct FAT* fat_t;
 
 struct __attribute__ ((packed)) root_entry {
-    uint8_t filename[FS_FILENAME_LEN];
+    char filename[FS_FILENAME_LEN];
     uint32_t file_size;
     uint16_t block1_index;
     uint8_t padding[10];
@@ -47,17 +45,17 @@ struct __attribute__ ((packed)) fd {
 
 typedef struct root_entry* root_t;
 
-int empty_root_entries(root_t root_directory);
-int find_file(root_t root_directory, const char* filename);
-int find_first_empty(root_t root_directory);
-int first_fit(fat_t fat_blocks);
-int first_open_fd(struct fd* file_descriptor);
-int free_fat_blocks(fat_t fat_blocks, super_t super);
+int empty_root_entries(void );
+int find_file(const char* filename);
+int find_first_empty(void);
+int first_fit(void);
+int first_open_fd(void );
+int free_fat_blocks(void );
 
 struct root_entry root_directory[FS_FILE_MAX_COUNT];
 struct fd file_descriptor[FS_FILE_MAX_COUNT];
-fat_t fat_blocks;
-super_t super;
+struct FAT fat_block;
+struct super_block super;
 unsigned is_mounted = 0;
 int num_open_files = 0;
 
@@ -70,37 +68,27 @@ int fs_mount(const char *diskname) {
     }
     is_mounted = 1;
     size_t block_num = 0;
-    super = (super_t) malloc(sizeof(struct super_block));
-    if (super == NULL) {
+    if (block_read(block_num, &super) != 0) {
         return -1;
     }
-    if (block_read(block_num, super) != 0) {
+    if (block_disk_count() != super.disk_blocks) {
         return -1;
     }
-    if (block_disk_count() != super -> disk_blocks) {
+    if (!strcmp((char*)super.signature, "ECS150FS")) {
         return -1;
     }
-    if (!strcmp((char*)super->signature, "ECS150FS")) {
-        return -1;
-    }
-    fat_blocks = (fat_t) malloc(sizeof(struct FAT));
-    if (fat_blocks == NULL) {
-        return -1;
-    }
-    fat_blocks -> fat_data = (uint16_t* ) malloc(sizeof(uint16_t) * BLOCK_SIZE
-            * super -> block_fat);
-    if (fat_blocks == NULL) {
-        return -1;
-    }
-
-    for (block_num = 1; block_num <= super -> block_fat; block_num++) {
-        if (block_read(block_num, &fat_blocks -> fat_data[(block_num - 1)\
-        *BLOCK_SIZE]) != 0) {
+    block_num++;
+    fat_block.fat_data = (uint16_t* ) malloc(sizeof(uint16_t) * BLOCK_SIZE
+            * super.block_fat);
+    for (block_num = 1; block_num <= super.block_fat; block_num++) {
+        if (block_read(block_num, &fat_block.fat_data[(block_num - 1)\
+        *2048]) != 0) {
             return -1;
         }
     }
-    fat_blocks -> fat_data[0] = FAT_EOC;
-    if (block_read(block_num, root_directory) != 0) {
+    block_num = super.block_fat + 1;
+    fat_block.fat_data[0] = FAT_EOC;
+    if (block_read(block_num, &root_directory) != 0) {
         return -1;
     }
     return 0;
@@ -113,29 +101,22 @@ int fs_umount(void) {
     }
     is_mounted = 0;
     int block_num = 0;
-    if (block_write(block_num, super) != 0) {
+    if (block_write(block_num, &super) != 0) {
         return -1;
     }
-    block_write(block_num, super);
     block_num++;
-    free(super);
-    for (block_num = 1; block_num <= super -> block_fat; block_num++) {
-        block_write(block_num, &fat_blocks -> fat_data[(block_num - 1)\
-        *BLOCK_SIZE]);
+    for (block_num = 1; block_num <= super.block_fat; block_num++) {
+        block_write(block_num, &fat_block.fat_data[(block_num - 1) \
+        *2048]);
     }
-    free(fat_blocks -> fat_data);
-    free(fat_blocks);
-    if (block_write(block_num, root_directory) != 0) {
+    free(fat_block.fat_data);
+    block_num = super.block_fat + 1;
+    if (block_write(block_num, &root_directory) != 0) {
         return -1;
-    }
-    block_write(block_num, root_directory);
-    for (int i = 0; i < FS_FILE_MAX_COUNT; i++) {
-        memset(root_directory[i].filename, '\0', FS_FILENAME_LEN);
     }
     if (block_disk_close() == -1) {
         return -1;
     }
-
     return 0;
 }
 
@@ -146,16 +127,16 @@ int fs_info(void)
     if (is_mounted != 1) {
         return -1;
     }
-    fprintf(stderr, "FS info:\n");
-    fprintf(stderr, "total_blk_count: %d\n", super -> disk_blocks);
-    fprintf(stderr, "fat_blk_count: %d\n", super -> block_fat);
-    fprintf(stderr, "rdir_blk: %d\n", super -> root_index);
-    fprintf(stderr, "data_blk: %d\n", super -> dblock_index);
-    fprintf(stderr, "data_blk_count: %d\n", super -> num_blocks);
-    fprintf(stderr, "fat_free_ratio: %d", free_fat_blocks(fat_blocks, super));
-    fprintf(stderr, "/%d\n", super -> num_blocks);
-    fprintf(stderr, "rdir_free_ratio: %d", empty_root_entries(root_directory));
-    fprintf(stderr, "/%d\n", FS_FILE_MAX_COUNT);
+    fprintf(stdout, "FS info:\n");
+    fprintf(stdout, "total_blk_count: %d\n", super.disk_blocks);
+    fprintf(stdout, "fat_blk_count: %d\n", super.block_fat);
+    fprintf(stdout, "rdir_blk: %d\n", super.root_index);
+    fprintf(stdout, "data_blk: %d\n", super.dblock_index);
+    fprintf(stdout, "data_blk_count: %d\n", super.num_blocks);
+    fprintf(stdout, "fat_free_ratio: %d", free_fat_blocks());
+    fprintf(stdout, "/%d\n", super.num_blocks);
+    fprintf(stdout, "rdir_free_ratio: %d", empty_root_entries());
+    fprintf(stdout, "/%d\n", FS_FILE_MAX_COUNT);
     return 0;
 }
 
@@ -171,11 +152,11 @@ int fs_create(const char *filename)
     if (strlen(filename) > FS_FILENAME_LEN) {
         return -1;
     }
-    int empty_entry = find_first_empty(root_directory);
+    int empty_entry = find_first_empty();
     if (empty_entry == -1) {
         return -1;
     }
-    strcpy((char*)root_directory[empty_entry].filename, filename);
+    strcpy(root_directory[empty_entry].filename, filename);
     root_directory[empty_entry].file_size = 0;
     root_directory[empty_entry].block1_index = FAT_EOC;
     return 0;
@@ -189,7 +170,7 @@ int fs_delete(const char *filename) {
     if (!filename) {
         return -1;
     }
-    int file_index = find_file(root_directory, filename);
+    int file_index = find_file(filename);
     int fat_index = 0;
     if (file_index == -1) {
         return -1;
@@ -200,8 +181,8 @@ int fs_delete(const char *filename) {
     root_directory[file_index].block1_index = 0;
 
     while (fat_index != FAT_EOC) {
-        int next_value = fat_blocks -> fat_data[fat_index];
-        fat_blocks -> fat_data[fat_index] = 0;
+        int next_value = fat_block.fat_data[fat_index];
+        fat_block.fat_data[fat_index] = 0;
         fat_index = next_value;
     }
     return 0;
@@ -213,11 +194,13 @@ int fs_ls(void)
     if (is_mounted == 0) {
         return -1;
     }
+    fprintf(stdout, "FS Ls:\n");
     for (int i = 0; i < FS_FILE_MAX_COUNT; i++) {
-        if (root_directory[i].filename[0] != '\0') {
-            fprintf(stderr, "file: %hhn, size: %d, data: %d", \
+        if (root_directory[i].block1_index != 0) {
+            fprintf(stdout, "file: %s, size: %d, data: %d", \
                     root_directory[i].filename, root_directory[i].file_size,
                     root_directory[i].block1_index);
+            printf("\n");
         }
     }
     return 0;
@@ -232,11 +215,11 @@ int fs_open(const char *filename)
     if (is_mounted == 0) {
         return -1;
     }
-    int descriptor = first_open_fd(file_descriptor);
+    int descriptor = first_open_fd();
     if (descriptor == -1) {
         return -1;
     }
-    int file_match = find_file(root_directory, filename);
+    int file_match = find_file(filename);
     if (file_match == -1) {
         return -1;
     }
@@ -323,7 +306,7 @@ int fs_read(int fd, void *buf, size_t count)
     return 0;
 }
 
-int empty_root_entries(root_t root_directory) {
+int empty_root_entries() {
     int result = 0;
     for (int i = 0; i < FS_FILE_MAX_COUNT; i++) {
         if (root_directory[i].filename[0] == '\0') {
@@ -333,7 +316,7 @@ int empty_root_entries(root_t root_directory) {
     return result;
 }
 
-int find_file(root_t root_directory, const char* filename) {
+int find_file(const char* filename) {
     for (int i = 0; i < FS_FILE_MAX_COUNT; i++) {
         if (strcmp((char *)root_directory[i].filename, filename) == 0) {
             return i;
@@ -342,7 +325,7 @@ int find_file(root_t root_directory, const char* filename) {
     return -1;
 }
 
-int find_first_empty(root_t root_directory) {
+int find_first_empty(void) {
     for (int i = 0; i < FS_FILE_MAX_COUNT; i++) {
         if (root_directory[i].filename[0] == '\0') {
             return i;
@@ -351,16 +334,16 @@ int find_first_empty(root_t root_directory) {
     return -1;
 }
 
-int first_fit(fat_t fat_blocks) {
-    for (int i = 0; i < super -> block_fat; i++) {
-        if (fat_blocks -> fat_data[i * BLOCK_SIZE] == 0) {
+int first_fit() {
+    for (int i = 0; i < super.block_fat; i++) {
+        if (fat_block.fat_data[i * BLOCK_SIZE] == 0) {
             return i;
         }
     }
     return -1;
 }
 
-int first_open_fd(struct fd* file_descriptor) {
+int first_open_fd() {
     for (int i = 0; i < FS_OPEN_MAX_COUNT; i++) {
         if (file_descriptor[i].file[0] == '\0') {
             return i;
@@ -369,10 +352,10 @@ int first_open_fd(struct fd* file_descriptor) {
     return -1;
 }
 
-int free_fat_blocks(fat_t fat_blocks, super_t super) {
+int free_fat_blocks() {
     int result = 0;
-    for (int i = 0; i < super -> num_blocks; i++) {
-        if (fat_blocks -> fat_data[i] == 0) {
+    for (int i = 0; i < super.num_blocks; i++) {
+        if (fat_block.fat_data[i] == 0) {
             result++;
         }
     }
