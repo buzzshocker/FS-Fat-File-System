@@ -8,6 +8,7 @@
 #include "fs.h"
 
 #define FAT_EOC 0xFFFF
+#define FBLOCK_SIZE 2048
 /// To be removed
 #define UNUSED(x) (void)(x)
 
@@ -82,7 +83,7 @@ int fs_mount(const char *diskname) {
             * super.block_fat);
     for (block_num = 1; block_num <= super.block_fat; block_num++) {
         if (block_read(block_num, &fat_block.fat_data[(block_num - 1)\
-        *2048]) != 0) {
+        *FBLOCK_SIZE]) != 0) {
             return -1;
         }
     }
@@ -107,7 +108,7 @@ int fs_umount(void) {
     block_num++;
     for (block_num = 1; block_num <= super.block_fat; block_num++) {
         block_write(block_num, &fat_block.fat_data[(block_num - 1) \
-        *2048]);
+        *FBLOCK_SIZE]);
     }
     free(fat_block.fat_data);
     block_num = super.block_fat + 1;
@@ -123,7 +124,6 @@ int fs_umount(void) {
 int fs_info(void)
 {
 	/* TODO: Phase 1 */
-    /// Not complete. Need to add fat_free_ratio
     if (is_mounted != 1) {
         return -1;
     }
