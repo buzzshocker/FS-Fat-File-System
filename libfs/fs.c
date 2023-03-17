@@ -128,15 +128,15 @@ int fs_info(void)
     if (is_mounted != 1) {
         return -1;
     }
-    fprintf(stdout, "FS info:\n");
-    fprintf(stdout, "total_blk_count: %d\n", super.disk_blocks);
-    fprintf(stdout, "fat_blk_count: %d\n", super.block_fat);
-    fprintf(stdout, "rdir_blk: %d\n", super.root_index);
-    fprintf(stdout, "data_blk: %d\n", super.dblock_index);
-    fprintf(stdout, "data_blk_count: %d\n", super.num_blocks);
-    fprintf(stdout, "fat_free_ratio: %d", free_fat_blocks());
+    fprintf(stdout, "FS Info:\n");
+    fprintf(stdout, "total_blk_count=%d\n", super.disk_blocks);
+    fprintf(stdout, "fat_blk_count=%d\n", super.block_fat);
+    fprintf(stdout, "rdir_blk=%d\n", super.root_index);
+    fprintf(stdout, "data_blk=%d\n", super.dblock_index);
+    fprintf(stdout, "data_blk_count=%d\n", super.num_blocks);
+    fprintf(stdout, "fat_free_ratio=%d", free_fat_blocks());
     fprintf(stdout, "/%d\n", super.num_blocks);
-    fprintf(stdout, "rdir_free_ratio: %d", empty_root_entries());
+    fprintf(stdout, "rdir_free_ratio=%d", empty_root_entries());
     fprintf(stdout, "/%d\n", FS_FILE_MAX_COUNT);
     return 0;
 }
