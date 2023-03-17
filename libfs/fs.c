@@ -292,59 +292,10 @@ int fs_lseek(int fd, size_t offset)
 int fs_write(int fd, void *buf, size_t count)
 {
 	/* TODO: Phase 4 */
-    char cur_filename[FS_FILENAME_LEN];
-    int cur_off;
-    int read_index = 1;
-    int start_index;
-    int fat_new;
-    int starting_block;
-    uint8_t * bounce_buf = (uint8_t * ) malloc(sizeof(uint8_t) * BLOCK_SIZE);
-    uint8_t * user_supplied_buf = (uint8_t* ) malloc(sizeof(uint8_t) * count);
-    for (int i = 0; i < FS_OPEN_MAX_COUNT; i++) {
-        if (file_descriptor[fd].is_open) {
-            cur_off = file_descriptor[i].offset;
-            strcpy(cur_filename, (char *)file_descriptor[i].file);
-            break;
-        }
-    }
-    while((cur_off - 4096) > 0){
-        cur_off -= 4096;
-        read_index += 1;
-    }
-    start_index = find_file(cur_filename);
-    fat_new = root_directory[start_index].block1_index;
-    for (int j = 1; j < read_index; j++){
-        fat_new = fat_block.fat_data[fat_new];
-    }
-    starting_block = super.dblock_index + fat_new;
-    size_t fin_bytes = 0;
-    size_t rem_bytes = count;
-    size_t cur_bytes = 0;
-    while(fin_bytes < count){
-        size_t bytes_new = 4096 - (cur_off % 4096);
-        block_read(starting_block, (void *)bounce_buf);
-        if(rem_bytes <= bytes_new){
-            cur_bytes = rem_bytes;
-        } 
-        else{
-            cur_bytes = bytes_new;
-        }
-        memcpy(&user_supplied_buf[fin_bytes], &bounce_buf[cur_off % 4096], cur_bytes);
-        rem_bytes = rem_bytes - cur_bytes;
-        fin_bytes += cur_bytes;
-        cur_off = cur_off + cur_bytes;
-        fat_new = fat_block.fat_data[fat_new];
-        starting_block = super.dblock_index + fat_new;
-    }
-    memcpy(buf, &user_supplied_buf[0], count);
-    for (int i = 0; i < FS_OPEN_MAX_COUNT; i++) {
-        if (file_descriptor[fd].is_open) {
-            file_descriptor[i].offset = cur_off;
-            break;
-        }
-    }
-    return fin_bytes;
-    
+    (void) fd;
+    (void) buf;
+    (void) count;
+    return 0;    
 }
 
 int fs_read(int fd, void *buf, size_t count)
