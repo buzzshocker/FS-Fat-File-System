@@ -39,7 +39,7 @@ struct __attribute__ ((packed)) root_entry {
 struct __attribute__ ((packed)) fd {
     int offset;
     uint8_t file[FS_FILENAME_LEN];
-    uint32_t size;
+    // uint32_t size;
     uint16_t index;
     int is_open;
 };
@@ -88,7 +88,7 @@ int fs_mount(const char *diskname) {
         }
     }
     block_num = super.block_fat + 1;
-    fat_block.fat_data[0] = FAT_EOC;
+    //fat_block.fat_data[0] = FAT_EOC;
     if (block_read(block_num, &root_directory) != 0) {
         return -1;
     }
@@ -229,7 +229,7 @@ int fs_open(const char *filename)
            (char*)root_directory[file_match].filename);
     file_descriptor[descriptor].index =
             root_directory[file_match].block1_index;
-    file_descriptor[descriptor].size = root_directory[file_match].file_size;
+    // file_descriptor[descriptor].size = root_directory[file_match].file_size;
     return 0;
 }
 
@@ -248,7 +248,7 @@ int fs_close(int fd)
     file_descriptor[fd].is_open = 0;
     memset(file_descriptor[fd].file, '\0', FS_FILENAME_LEN);
     file_descriptor[fd].index = 0;
-    file_descriptor[fd].size = 0;
+    // file_descriptor[fd].size = 0;
     file_descriptor[fd].offset = 0;
     return 0;
 }
@@ -265,7 +265,10 @@ int fs_stat(int fd)
     if (file_descriptor[fd].is_open != 1) {
         return -1;
     }
-    int result = file_descriptor[fd].size;
+
+    int fd_index = find_file((char *)file_descriptor[fd].file);
+    int result = root_directory[fd_index].file_size;
+    //CHANGE int result = file_descriptor[fd].size;
     return result;
 }
 
@@ -273,17 +276,25 @@ int fs_lseek(int fd, size_t offset)
 {
 	/* TODO: Phase 3 */
     if (is_mounted == 0) {
+        printf("mouned is 0\n");
         return -1;
     }
     if (fd < 0) {
+        printf("fd less than 0\n");
         return -1;
     }
     if (file_descriptor[fd].is_open != 1) {
+        printf("is open not 1\n");
         return -1;
     }
-    if (file_descriptor[fd].size < offset) {
+    int fd_index = find_file((char *)file_descriptor[fd].file);
+    if (root_directory[fd_index].file_size < offset) {
         return -1;
     }
+    //CHANGE
+    // if (file_descriptor[fd].size < offset) {
+    //     return -1;
+    // }
     file_descriptor[fd].offset = offset;
     return 0;
 }
@@ -319,14 +330,6 @@ int fs_write(int fd, void *buf, size_t count)
     for (int i = 1; i < read_index; i++){
         fat_new = fat_block.fat_data[fat_new];
     }
-    if(root_new == FAT_EOC){
-        for (int i = 0; i < FS_FILE_MAX_COUNT; i++) {
-            if (strcmp((char *)root_directory[i].filename, cur_filename) == 0) {
-                root_directory[start_index].block1_index = fat_new;
-                break;
-            }
-        }     
-    }
     if(fat_new == FAT_EOC){
         for (int i = 1; i < super.block_fat; i++) {
             if (fat_block.fat_data[i] == 0) {
@@ -335,6 +338,14 @@ int fs_write(int fd, void *buf, size_t count)
                 break;
             }
         }
+    }
+    if(root_new == FAT_EOC){
+        for (int i = 0; i < FS_FILE_MAX_COUNT; i++) {
+            if (strcmp((char *)root_directory[i].filename, cur_filename) == 0) {
+                root_directory[start_index].block1_index = fat_new;
+                break;
+            }
+        }     
     }
     starting_block = super.dblock_index + fat_new;
     size_t fin_bytes = 0;
