@@ -79,7 +79,7 @@ int fs_mount(const char *diskname) {
         return -1;
     }
     block_num++;
-    fat_block.fat_data = (uint16_t* ) malloc(sizeof(uint16_t) * BLOCK_SIZE
+    fat_block.fat_data = (uint16_t* ) malloc(sizeof(uint16_t) * FBLOCK_SIZE
             * super.block_fat);
     for (block_num = 1; block_num <= super.block_fat; block_num++) {
         if (block_read(block_num, &fat_block.fat_data[(block_num - 1)\
@@ -274,6 +274,7 @@ int fs_stat(int fd)
 
 int fs_lseek(int fd, size_t offset)
 {
+    // printf("this is lseek\n");
 	/* TODO: Phase 3 */
     if (is_mounted == 0) {
         printf("mouned is 0\n");
@@ -289,13 +290,16 @@ int fs_lseek(int fd, size_t offset)
     }
     int fd_index = find_file((char *)file_descriptor[fd].file);
     if (root_directory[fd_index].file_size < offset) {
+        // printf("size: %d",root_directory[fd_index].file_size);
         return -1;
     }
     //CHANGE
     // if (file_descriptor[fd].size < offset) {
+    //     printf("size: %d",file_descriptor[fd].size);
     //     return -1;
     // }
     file_descriptor[fd].offset = offset;
+    //printf("this is lseek\n");
     return 0;
 }
 
@@ -325,13 +329,16 @@ int fs_write(int fd, void *buf, size_t count)
     }
     start_index = find_file(cur_filename);
     root_directory[start_index].file_size += (int)count;
+    // printf("file_size%d\n",root_directory[start_index].file_size);
     root_new = root_directory[start_index].block1_index;
+    // printf("root_new%d\n",root_new);
     fat_new = root_new;
     for (int i = 1; i < read_index; i++){
+        // printf("fat_new_write%d\n",fat_new);
         fat_new = fat_block.fat_data[fat_new];
     }
     if(fat_new == FAT_EOC){
-        for (int i = 1; i < super.block_fat; i++) {
+        for (int i = 1; i < super.num_blocks; i++) {
             if (fat_block.fat_data[i] == 0) {
                 fat_new = i;
                 fat_block.fat_data[i] = FAT_EOC;
@@ -347,6 +354,10 @@ int fs_write(int fd, void *buf, size_t count)
             }
         }     
     }
+    // printf("fat_fat%d\n",fat_new);
+    // printf("diff%d\n",super.disk_blocks - (super.block_fat + 2));
+    // printf("data_blocks%d\n",super.num_blocks);
+    
     starting_block = super.dblock_index + fat_new;
     size_t fin_bytes = 0;
     size_t rem_bytes = count;
@@ -367,7 +378,7 @@ int fs_write(int fd, void *buf, size_t count)
         cur_off = cur_off + cur_bytes;
         if(fin_bytes < count){
             if(fat_block.fat_data[fat_new] == FAT_EOC){
-                for (int i = 1; i < super.block_fat; i++) {
+                for (int i = 1; i < super.num_blocks; i++) {
                     if (fat_block.fat_data[i] == 0) {
                         fat_block.fat_data[fat_new] = i;
                         fat_block.fat_data[i] = FAT_EOC;
@@ -386,12 +397,14 @@ int fs_write(int fd, void *buf, size_t count)
             break;
         }
     }
+    // printf("file_size%d\n",root_directory[start_index].file_size);
     return fin_bytes;  
 }
 
 int fs_read(int fd, void *buf, size_t count)
 {
 	/* TODO: Phase 4 */
+    // printf("read\n");
     char cur_filename[FS_FILENAME_LEN];
     int cur_off;
     int read_index = 1;
@@ -414,13 +427,18 @@ int fs_read(int fd, void *buf, size_t count)
     start_index = find_file(cur_filename);
     fat_new = root_directory[start_index].block1_index;
     for (int j = 1; j < read_index; j++){
+        // printf("fat_new%d\n",fat_new);
         fat_new = fat_block.fat_data[fat_new];
     }
+    // printf("fat new %d\n",fat_new);
+    // printf("dblock %d\n",super.dblock_index);
+    
     starting_block = super.dblock_index + fat_new;
     size_t fin_bytes = 0;
     size_t rem_bytes = count;
     size_t cur_bytes = 0;
     while(fin_bytes < count){
+        // printf("fin_bytes%lu\n",fin_bytes);
         size_t bytes_new = 4096 - (cur_off % 4096);
         block_read(starting_block, (void *)bounce_buf);
         if(rem_bytes <= bytes_new){
