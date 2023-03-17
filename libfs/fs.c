@@ -49,7 +49,6 @@ typedef struct root_entry* root_t;
 int empty_root_entries(void );
 int find_file(const char* filename);
 int find_first_empty(void);
-int find_first_fateoc(void);
 int first_fit(void);
 int first_open_fd(void );
 int free_fat_blocks(void );
@@ -292,10 +291,91 @@ int fs_lseek(int fd, size_t offset)
 int fs_write(int fd, void *buf, size_t count)
 {
 	/* TODO: Phase 4 */
-    (void) fd;
-    (void) buf;
-    (void) count;
-    return 0;    
+    char cur_filename[FS_FILENAME_LEN];
+    int cur_off;
+    int read_index = 1;
+    int start_index;
+    int fat_new;
+    int root_new;
+    int starting_block;
+    uint8_t * bounce_buf = (uint8_t * ) malloc(sizeof(uint8_t) * BLOCK_SIZE);
+    uint8_t * user_supplied_buf = (uint8_t* ) malloc(sizeof(uint8_t) * count);
+    memcpy(&user_supplied_buf[0], buf, count);
+    for (int i = 0; i < FS_OPEN_MAX_COUNT; i++) {
+        if (file_descriptor[fd].is_open) {
+            cur_off = file_descriptor[i].offset;
+            strcpy(cur_filename, (char *)file_descriptor[i].file);
+            break;
+        }
+    }
+    while((cur_off - 4096) > 0){
+        cur_off -= 4096;
+        read_index += 1;
+    }
+    start_index = find_file(cur_filename);
+    root_directory[start_index].file_size += (int)count;
+    root_new = root_directory[start_index].block1_index;
+    fat_new = root_new;
+    for (int i = 1; i < read_index; i++){
+        fat_new = fat_block.fat_data[fat_new];
+    }
+    if(root_new == FAT_EOC){
+        for (int i = 0; i < FS_FILE_MAX_COUNT; i++) {
+            if (strcmp((char *)root_directory[i].filename, cur_filename) == 0) {
+                root_directory[start_index].block1_index = fat_new;
+                break;
+            }
+        }     
+    }
+    if(fat_new == FAT_EOC){
+        for (int i = 1; i < super.block_fat; i++) {
+            if (fat_block.fat_data[i] == 0) {
+                fat_new = i;
+                fat_block.fat_data[i] = FAT_EOC;
+                break;
+            }
+        }
+    }
+    starting_block = super.dblock_index + fat_new;
+    size_t fin_bytes = 0;
+    size_t rem_bytes = count;
+    size_t cur_bytes = 0;
+    while(fin_bytes < count){
+        size_t bytes_new = 4096 - (cur_off % 4096);
+        block_read(starting_block, (void *)bounce_buf);
+        if(rem_bytes <= bytes_new){
+            cur_bytes = rem_bytes;
+        } 
+        else{
+            cur_bytes = bytes_new;
+        }
+        memcpy(&bounce_buf[cur_off % 4096], &user_supplied_buf[fin_bytes], cur_bytes);
+        block_write(starting_block, (void *)bounce_buf);
+        rem_bytes = rem_bytes - cur_bytes;
+        fin_bytes += cur_bytes;
+        cur_off = cur_off + cur_bytes;
+        if(fin_bytes < count){
+            if(fat_block.fat_data[fat_new] == FAT_EOC){
+                for (int i = 1; i < super.block_fat; i++) {
+                    if (fat_block.fat_data[i] == 0) {
+                        fat_block.fat_data[fat_new] = i;
+                        fat_block.fat_data[i] = FAT_EOC;
+                        break;
+                    }
+                }
+            }
+
+        }
+        fat_new = fat_block.fat_data[fat_new];
+        starting_block = super.dblock_index + fat_new;
+    }
+    for (int i = 0; i < FS_OPEN_MAX_COUNT; i++) {
+        if (file_descriptor[fd].is_open) {
+            file_descriptor[i].offset = cur_off;
+            break;
+        }
+    }
+    return fin_bytes;  
 }
 
 int fs_read(int fd, void *buf, size_t count)
@@ -378,15 +458,6 @@ int find_file(const char* filename) {
 int find_first_empty(void) {
     for (int i = 0; i < FS_FILE_MAX_COUNT; i++) {
         if (root_directory[i].filename[0] == '\0') {
-            return i;
-        }
-    }
-    return -1;
-}
-
-int find_first_fateoc(void) {
-    for (int i = 0; i < FS_FILE_MAX_COUNT; i++) {
-        if (root_directory[i].block1_index == FAT_EOC) {
             return i;
         }
     }
