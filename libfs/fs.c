@@ -337,7 +337,7 @@ int fs_write(int fd, void *buf, size_t count)
         // printf("fat_new_write%d\n",fat_new);
         fat_new = fat_block.fat_data[fat_new];
     }
-    if(fat_new == FAT_EOC){
+    if((fat_new == FAT_EOC) && (count > 0)){
         for (int i = 1; i < super.num_blocks; i++) {
             if (fat_block.fat_data[i] == 0) {
                 fat_new = i;
@@ -346,7 +346,7 @@ int fs_write(int fd, void *buf, size_t count)
             }
         }
     }
-    if(root_new == FAT_EOC){
+    if((root_new == FAT_EOC) && (count > 0)){
         for (int i = 0; i < FS_FILE_MAX_COUNT; i++) {
             if (strcmp((char *)root_directory[i].filename, cur_filename) == 0) {
                 root_directory[start_index].block1_index = fat_new;
