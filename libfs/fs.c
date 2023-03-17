@@ -9,43 +9,41 @@
 
 #define FAT_EOC 0xFFFF
 #define FBLOCK_SIZE 2048
-/// To be removed
-#define UNUSED(x) (void)(x)
 
 /* TODO: Phase 1 */
 struct __attribute__ ((packed)) super_block {
-    uint8_t signature[8];
-    uint16_t disk_blocks;
-    uint16_t root_index;
-    uint16_t dblock_index;
-    uint16_t num_blocks;
-    uint8_t block_fat;
+    uint8_t signature[8];   // Signature of the file - Always "ECS150FS"
+    uint16_t disk_blocks;   // Total number of virtual disk blocks
+    uint16_t root_index;    // Block index of root directory
+    uint16_t dblock_index;  // First data block index
+    uint16_t num_blocks;    // Number of data blocks
+    uint8_t block_fat;      // Number of fat blocks
     uint8_t padding[4079];
 };
 
 struct __attribute__ ((packed)) FAT {
-    uint16_t* fat_data;
+    uint16_t* fat_data;  // Array containing the fat blocks
 };
 
 typedef struct FAT* fat_t;
 
 struct __attribute__ ((packed)) root_entry {
-    char filename[FS_FILENAME_LEN];
-    uint32_t file_size;
-    uint16_t block1_index;
+    char filename[FS_FILENAME_LEN];  // Filename
+    uint32_t file_size;              // Size of file
+    uint16_t block1_index;           // Index of first data block
     uint8_t padding[10];
 };
 
 struct __attribute__ ((packed)) fd {
-    int offset;
-    uint8_t file[FS_FILENAME_LEN];
-    // uint32_t size;
-    uint16_t index;
-    int is_open;
+    int offset;                         // File offset
+    uint8_t file[FS_FILENAME_LEN];      // Name of the file
+    uint16_t index;                     // Index of first data block
+    int is_open;                        // Indicator for file being open
 };
 
 typedef struct root_entry* root_t;
 
+// Helper functions
 int empty_root_entries(void );
 int find_file(const char* filename);
 int find_first_empty(void);
@@ -53,6 +51,7 @@ int first_fit(void);
 int first_open_fd(void );
 int free_fat_blocks(void );
 
+// Global variables
 struct root_entry root_directory[FS_FILE_MAX_COUNT];
 struct fd file_descriptor[FS_FILE_MAX_COUNT];
 struct FAT fat_block;
@@ -60,6 +59,9 @@ struct super_block super;
 unsigned is_mounted = 0;
 int num_open_files = 0;
 
+
+// To mount the given diskname by reading in all the blocks from that disk onto
+// the appropriate global variables.
 int fs_mount(const char *diskname) {
     if (!diskname) {
         return -1;
@@ -79,8 +81,9 @@ int fs_mount(const char *diskname) {
         return -1;
     }
     block_num++;
-    fat_block.fat_data = (uint16_t* ) malloc(sizeof(uint16_t) * FBLOCK_SIZE
-            * super.block_fat);
+    // Allocating space for num fat blocks, with each index = BLOCK_SIZE
+    fat_block.fat_data = (uint16_t* ) malloc(sizeof(uint16_t) * BLOCK_SIZE
+                                             * super.block_fat);
     for (block_num = 1; block_num <= super.block_fat; block_num++) {
         if (block_read(block_num, &fat_block.fat_data[(block_num - 1)\
         *FBLOCK_SIZE]) != 0) {
@@ -88,15 +91,20 @@ int fs_mount(const char *diskname) {
         }
     }
     block_num = super.block_fat + 1;
-    //fat_block.fat_data[0] = FAT_EOC;
+    if (fat_block.fat_data[0] != FAT_EOC) {
+        return -1;
+    }
     if (block_read(block_num, &root_directory) != 0) {
         return -1;
     }
     return 0;
 }
 
+
+// To unmount the currently mounted disk and write back the data blocks from the
+// appropriate global variables back
 int fs_umount(void) {
-	/* TODO: Phase 1 */
+    /* TODO: Phase 1 */
     if (is_mounted != 1) {
         return -1;
     }
@@ -121,9 +129,10 @@ int fs_umount(void) {
     return 0;
 }
 
+// To return important and vital information about the currently mounted disk
 int fs_info(void)
 {
-	/* TODO: Phase 1 */
+    /* TODO: Phase 1 */
     if (is_mounted != 1) {
         return -1;
     }
@@ -140,9 +149,11 @@ int fs_info(void)
     return 0;
 }
 
+
+// To create a new file in the currently mounted disk
 int fs_create(const char *filename)
 {
-	/* TODO: Phase 2 */
+    /* TODO: Phase 2 */
     if (!filename) {
         return -1;
     }
@@ -162,8 +173,10 @@ int fs_create(const char *filename)
     return 0;
 }
 
+
+// To delete a file in the currently mounted disk and deallocating its fat block
 int fs_delete(const char *filename) {
-	/* TODO: Phase 2 */
+    /* TODO: Phase 2 */
     if (is_mounted == 0) {
         return -1;
     }
@@ -188,9 +201,11 @@ int fs_delete(const char *filename) {
     return 0;
 }
 
+
+// To give name, space and block information about files in the disk
 int fs_ls(void)
 {
-	/* TODO: Phase 2 */
+    /* TODO: Phase 2 */
     if (is_mounted == 0) {
         return -1;
     }
@@ -206,9 +221,11 @@ int fs_ls(void)
     return 0;
 }
 
+
+// To open the given file if present in the disk and assign it an fd
 int fs_open(const char *filename)
 {
-	/* TODO: Phase 3 */
+    /* TODO: Phase 3 */
     if (!filename) {
         return -1;
     }
@@ -229,13 +246,14 @@ int fs_open(const char *filename)
            (char*)root_directory[file_match].filename);
     file_descriptor[descriptor].index =
             root_directory[file_match].block1_index;
-    // file_descriptor[descriptor].size = root_directory[file_match].file_size;
     return 0;
 }
 
+
+// To close the file indicated by the fd and reset the associated variables
 int fs_close(int fd)
 {
-	/* TODO: Phase 3 */
+    /* TODO: Phase 3 */
     if (is_mounted == 0) {
         return -1;
     }
@@ -248,14 +266,15 @@ int fs_close(int fd)
     file_descriptor[fd].is_open = 0;
     memset(file_descriptor[fd].file, '\0', FS_FILENAME_LEN);
     file_descriptor[fd].index = 0;
-    // file_descriptor[fd].size = 0;
     file_descriptor[fd].offset = 0;
     return 0;
 }
 
+
+// To get size information about the file pointed at by the fd
 int fs_stat(int fd)
 {
-	/* TODO: Phase 3 */
+    /* TODO: Phase 3 */
     if (is_mounted == 0) {
         return -1;
     }
@@ -265,17 +284,17 @@ int fs_stat(int fd)
     if (file_descriptor[fd].is_open != 1) {
         return -1;
     }
-
     int fd_index = find_file((char *)file_descriptor[fd].file);
     int result = root_directory[fd_index].file_size;
-    //CHANGE int result = file_descriptor[fd].size;
     return result;
 }
 
+
+// To change the offset of the file indicated by the given fd to the given
+// offset
 int fs_lseek(int fd, size_t offset)
 {
-    // printf("this is lseek\n");
-	/* TODO: Phase 3 */
+    /* TODO: Phase 3 */
     if (is_mounted == 0) {
         printf("mouned is 0\n");
         return -1;
@@ -290,22 +309,27 @@ int fs_lseek(int fd, size_t offset)
     }
     int fd_index = find_file((char *)file_descriptor[fd].file);
     if (root_directory[fd_index].file_size < offset) {
-        // printf("size: %d",root_directory[fd_index].file_size);
         return -1;
     }
-    //CHANGE
-    // if (file_descriptor[fd].size < offset) {
-    //     printf("size: %d",file_descriptor[fd].size);
-    //     return -1;
-    // }
     file_descriptor[fd].offset = offset;
-    //printf("this is lseek\n");
     return 0;
 }
 
 int fs_write(int fd, void *buf, size_t count)
 {
-	/* TODO: Phase 4 */
+    /* TODO: Phase 4 */
+    if (is_mounted == 0) {
+        return -1;
+    }
+    if (fd < 0) {
+        return -1;
+    }
+    if (file_descriptor[fd].is_open != 1) {
+        return -1;
+    }
+    if (!buf) {
+        return -1;
+    }
     char cur_filename[FS_FILENAME_LEN];
     int cur_off;
     int read_index = 1;
@@ -323,21 +347,21 @@ int fs_write(int fd, void *buf, size_t count)
             break;
         }
     }
-    while((cur_off - 4096) > 0){
-        cur_off -= 4096;
+    while((cur_off - BLOCK_SIZE) > 0){
+        cur_off -= BLOCK_SIZE;
         read_index += 1;
     }
     start_index = find_file(cur_filename);
+    if (start_index == -1) {
+        return -1;
+    }
     root_directory[start_index].file_size += (int)count;
-    // printf("file_size%d\n",root_directory[start_index].file_size);
     root_new = root_directory[start_index].block1_index;
-    // printf("root_new%d\n",root_new);
     fat_new = root_new;
     for (int i = 1; i < read_index; i++){
-        // printf("fat_new_write%d\n",fat_new);
         fat_new = fat_block.fat_data[fat_new];
     }
-    if((fat_new == FAT_EOC) && (count > 0)){
+    if ((fat_new == FAT_EOC) && (count > 0)) {
         for (int i = 1; i < super.num_blocks; i++) {
             if (fat_block.fat_data[i] == 0) {
                 fat_new = i;
@@ -352,27 +376,28 @@ int fs_write(int fd, void *buf, size_t count)
                 root_directory[start_index].block1_index = fat_new;
                 break;
             }
-        }     
+        }
     }
-    // printf("fat_fat%d\n",fat_new);
-    // printf("diff%d\n",super.disk_blocks - (super.block_fat + 2));
-    // printf("data_blocks%d\n",super.num_blocks);
-    
     starting_block = super.dblock_index + fat_new;
     size_t fin_bytes = 0;
     size_t rem_bytes = count;
     size_t cur_bytes = 0;
     while(fin_bytes < count){
-        size_t bytes_new = 4096 - (cur_off % 4096);
-        block_read(starting_block, (void *)bounce_buf);
+        size_t bytes_new = BLOCK_SIZE - (cur_off % BLOCK_SIZE);
+        if (block_read(starting_block, (void *)bounce_buf) != 0) {
+            return -1;
+        }
         if(rem_bytes <= bytes_new){
             cur_bytes = rem_bytes;
-        } 
+        }
         else{
             cur_bytes = bytes_new;
         }
-        memcpy(&bounce_buf[cur_off % 4096], &user_supplied_buf[fin_bytes], cur_bytes);
-        block_write(starting_block, (void *)bounce_buf);
+        memcpy(&bounce_buf[cur_off % BLOCK_SIZE], &user_supplied_buf[fin_bytes],
+               cur_bytes);
+        if (block_write(starting_block, (void *)bounce_buf) != 0) {
+            return -1;
+        }
         rem_bytes = rem_bytes - cur_bytes;
         fin_bytes += cur_bytes;
         cur_off = cur_off + cur_bytes;
@@ -386,7 +411,6 @@ int fs_write(int fd, void *buf, size_t count)
                     }
                 }
             }
-
         }
         fat_new = fat_block.fat_data[fat_new];
         starting_block = super.dblock_index + fat_new;
@@ -397,14 +421,24 @@ int fs_write(int fd, void *buf, size_t count)
             break;
         }
     }
-    // printf("file_size%d\n",root_directory[start_index].file_size);
-    return fin_bytes;  
+    return fin_bytes;
 }
 
 int fs_read(int fd, void *buf, size_t count)
 {
-	/* TODO: Phase 4 */
-    // printf("read\n");
+    /* TODO: Phase 4 */
+    if (is_mounted == 0) {
+        return -1;
+    }
+    if (fd < 0) {
+        return -1;
+    }
+    if (file_descriptor[fd].is_open != 1) {
+        return -1;
+    }
+    if (!buf) {
+        return -1;
+    }
     char cur_filename[FS_FILENAME_LEN];
     int cur_off;
     int read_index = 1;
@@ -420,34 +454,35 @@ int fs_read(int fd, void *buf, size_t count)
             break;
         }
     }
-    while((cur_off - 4096) > 0){
-        cur_off -= 4096;
+    while((cur_off - BLOCK_SIZE) > 0){
+        cur_off -= BLOCK_SIZE;
         read_index += 1;
     }
     start_index = find_file(cur_filename);
+    if (start_index == -1) {
+        return -1;
+    }
     fat_new = root_directory[start_index].block1_index;
     for (int j = 1; j < read_index; j++){
-        // printf("fat_new%d\n",fat_new);
         fat_new = fat_block.fat_data[fat_new];
     }
-    // printf("fat new %d\n",fat_new);
-    // printf("dblock %d\n",super.dblock_index);
-    
     starting_block = super.dblock_index + fat_new;
     size_t fin_bytes = 0;
     size_t rem_bytes = count;
     size_t cur_bytes = 0;
     while(fin_bytes < count){
-        // printf("fin_bytes%lu\n",fin_bytes);
-        size_t bytes_new = 4096 - (cur_off % 4096);
-        block_read(starting_block, (void *)bounce_buf);
+        size_t bytes_new = BLOCK_SIZE - (cur_off % BLOCK_SIZE);
+        if (block_read(starting_block, (void *)bounce_buf)) {
+            return -1;
+        }
         if(rem_bytes <= bytes_new){
             cur_bytes = rem_bytes;
-        } 
+        }
         else{
             cur_bytes = bytes_new;
         }
-        memcpy(&user_supplied_buf[fin_bytes], &bounce_buf[cur_off % 4096], cur_bytes);
+        memcpy(&user_supplied_buf[fin_bytes], &bounce_buf[cur_off % BLOCK_SIZE],
+               cur_bytes);
         rem_bytes = rem_bytes - cur_bytes;
         fin_bytes += cur_bytes;
         cur_off = cur_off + cur_bytes;
@@ -462,9 +497,12 @@ int fs_read(int fd, void *buf, size_t count)
         }
     }
     return fin_bytes;
-
 }
 
+
+/// Helper functions
+
+// Find the number of empty root entries
 int empty_root_entries() {
     int result = 0;
     for (int i = 0; i < FS_FILE_MAX_COUNT; i++) {
@@ -475,6 +513,8 @@ int empty_root_entries() {
     return result;
 }
 
+
+// Find the index of the given filename in the root directory
 int find_file(const char* filename) {
     for (int i = 0; i < FS_FILE_MAX_COUNT; i++) {
         if (strcmp((char *)root_directory[i].filename, filename) == 0) {
@@ -484,6 +524,8 @@ int find_file(const char* filename) {
     return -1;
 }
 
+
+// Find first empty root directory entry
 int find_first_empty(void) {
     for (int i = 0; i < FS_FILE_MAX_COUNT; i++) {
         if (root_directory[i].filename[0] == '\0') {
@@ -493,6 +535,8 @@ int find_first_empty(void) {
     return -1;
 }
 
+
+// Find first empty fat block entry
 int first_fit() {
     for (int i = 0; i < super.block_fat; i++) {
         if (fat_block.fat_data[i * BLOCK_SIZE] == 0) {
@@ -502,6 +546,8 @@ int first_fit() {
     return -1;
 }
 
+
+// Find the first open file descriptor
 int first_open_fd() {
     for (int i = 0; i < FS_OPEN_MAX_COUNT; i++) {
         if (file_descriptor[i].file[0] == '\0') {
@@ -511,6 +557,8 @@ int first_open_fd() {
     return -1;
 }
 
+
+// Find the number of free fat blocks
 int free_fat_blocks() {
     int result = 0;
     for (int i = 0; i < super.num_blocks; i++) {
