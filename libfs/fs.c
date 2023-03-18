@@ -335,7 +335,7 @@ int fs_write(int fd, void *buf, size_t count)
         return -1;
     }
     char cur_filename[FS_FILENAME_LEN];
-    size_t cur_off;
+    int cur_off;
     int read_index = 1;
     int start_index;
     int fat_new;
@@ -359,7 +359,6 @@ int fs_write(int fd, void *buf, size_t count)
     if (start_index == -1) {
         return -1;
     }
-    root_directory[start_index].file_size += (int)count;
     root_new = root_directory[start_index].block1_index;
     fat_new = root_new;
     for (int i = 1; i < read_index; i++){
@@ -424,6 +423,10 @@ int fs_write(int fd, void *buf, size_t count)
             file_descriptor[i].offset = cur_off;
             break;
         }
+    }
+    int the_index = find_file((char *)file_descriptor[fd].file);
+    if ((int)root_directory[the_index].file_size < cur_off) {
+        root_directory[the_index].file_size = cur_off;
     }
     return fin_bytes;
 }
