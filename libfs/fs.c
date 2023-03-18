@@ -63,6 +63,7 @@ int num_open_files = 0;
 // To mount the given diskname by reading in all the blocks from that disk onto
 // the appropriate global variables.
 int fs_mount(const char *diskname) {
+
     if (!diskname) {
         return -1;
     }
@@ -104,7 +105,7 @@ int fs_mount(const char *diskname) {
 // To unmount the currently mounted disk and write back the data blocks from the
 // appropriate global variables back
 int fs_umount(void) {
-    /* TODO: Phase 1 */
+
     if (is_mounted != 1) {
         return -1;
     }
@@ -132,7 +133,6 @@ int fs_umount(void) {
 // To return important and vital information about the currently mounted disk
 int fs_info(void)
 {
-    /* TODO: Phase 1 */
     if (is_mounted != 1) {
         return -1;
     }
@@ -153,7 +153,6 @@ int fs_info(void)
 // To create a new file in the currently mounted disk
 int fs_create(const char *filename)
 {
-    /* TODO: Phase 2 */
     if (!filename) {
         return -1;
     }
@@ -163,7 +162,6 @@ int fs_create(const char *filename)
     if (strlen(filename) > FS_FILENAME_LEN) {
         return -1;
     }
-    /// Change made
     if (find_file(filename) != -1) {
         return -1;
     }
@@ -180,7 +178,7 @@ int fs_create(const char *filename)
 
 // To delete a file in the currently mounted disk and deallocating its fat block
 int fs_delete(const char *filename) {
-    /* TODO: Phase 2 */
+
     if (is_mounted == 0) {
         return -1;
     }
@@ -209,7 +207,6 @@ int fs_delete(const char *filename) {
 // To give name, space and block information about files in the disk
 int fs_ls(void)
 {
-    /* TODO: Phase 2 */
     if (is_mounted == 0) {
         return -1;
     }
@@ -229,7 +226,6 @@ int fs_ls(void)
 // To open the given file if present in the disk and assign it an fd
 int fs_open(const char *filename)
 {
-    /* TODO: Phase 3 */
     if (!filename) {
         return -1;
     }
@@ -257,7 +253,6 @@ int fs_open(const char *filename)
 // To close the file indicated by the fd and reset the associated variables
 int fs_close(int fd)
 {
-    /* TODO: Phase 3 */
     if (is_mounted == 0) {
         return -1;
     }
@@ -278,7 +273,6 @@ int fs_close(int fd)
 // To get size information about the file pointed at by the fd
 int fs_stat(int fd)
 {
-    /* TODO: Phase 3 */
     if (is_mounted == 0) {
         return -1;
     }
@@ -298,7 +292,6 @@ int fs_stat(int fd)
 // offset
 int fs_lseek(int fd, size_t offset)
 {
-    /* TODO: Phase 3 */
     if (is_mounted == 0) {
         printf("mouned is 0\n");
         return -1;
@@ -318,10 +311,10 @@ int fs_lseek(int fd, size_t offset)
     file_descriptor[fd].offset = offset;
     return 0;
 }
-
+// To write the given bytes of data from a buffer pointer into the file
+// referenced by the file descriptor
 int fs_write(int fd, void *buf, size_t count)
 {
-    /* TODO: Phase 4 */
     if (is_mounted == 0) {
         return -1;
     }
@@ -430,10 +423,10 @@ int fs_write(int fd, void *buf, size_t count)
     }
     return fin_bytes;
 }
-
+// To read the given bytes of data from a buffer pointer into the file
+// referenced by the file descriptor
 int fs_read(int fd, void *buf, size_t count)
 {
-    /* TODO: Phase 4 */
     if (is_mounted == 0) {
         return -1;
     }
