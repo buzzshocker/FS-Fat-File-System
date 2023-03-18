@@ -335,7 +335,7 @@ int fs_write(int fd, void *buf, size_t count)
         return -1;
     }
     char cur_filename[FS_FILENAME_LEN];
-    int cur_off;
+    size_t cur_off;
     int read_index = 1;
     int start_index;
     int fat_new;
