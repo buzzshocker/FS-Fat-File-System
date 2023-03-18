@@ -82,7 +82,7 @@ int fs_mount(const char *diskname) {
     }
     block_num++;
     // Allocating space for num fat blocks, with each index = BLOCK_SIZE
-    fat_block.fat_data = (uint16_t* ) malloc(sizeof(uint16_t) * FBLOCK_SIZE
+    fat_block.fat_data = (uint16_t* ) malloc(sizeof(uint16_t) * BLOCK_SIZE
                                              * super.block_fat);
     for (block_num = 1; block_num <= super.block_fat; block_num++) {
         if (block_read(block_num, &fat_block.fat_data[(block_num - 1)\
@@ -161,6 +161,10 @@ int fs_create(const char *filename)
         return -1;
     }
     if (strlen(filename) > FS_FILENAME_LEN) {
+        return -1;
+    }
+    /// Change made
+    if (find_file(filename) != -1) {
         return -1;
     }
     int empty_entry = find_first_empty();
